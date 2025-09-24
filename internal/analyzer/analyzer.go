@@ -50,16 +50,16 @@ func ConvertToReportEntry(res CheckResult) ReportEntry {
 		var fileNotFoundError *FileNotFoundError
 		var parsingErr *ParsingError
 		if errors.As(res.Err, &fileNotFoundError) {
-			report.Status = "Inaccessible"
+
 			report.Message = fileNotFoundError.Error()
 			report.ErrorDetails = fileNotFoundError.Unwrap().Error()
 
 		} else if errors.As(res.Err, &parsingErr) {
-			report.Status = "Parsing Error"
+
 			report.Message = parsingErr.Error()
 			report.ErrorDetails = parsingErr.Unwrap().Error()
 		} else {
-			report.Status = "Error"
+
 			report.Message = "Unknown error occurred"
 			report.ErrorDetails = res.Err.Error()
 		}

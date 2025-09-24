@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/ibbraba/tp-log-analyzer/internal/analyzer"
@@ -14,6 +15,7 @@ import (
 var (
 	inputFilePath  string
 	outputFilePath string
+	statusFilter   string
 )
 
 var analyzeCmd = &cobra.Command{
@@ -57,7 +59,22 @@ var analyzeCmd = &cobra.Command{
 
 		for result := range resultsChan {
 			reportEntry := analyzer.ConvertToReportEntry(result)
-			finalReport = append(finalReport, reportEntry)
+
+			// Filtre reportEntry
+			if statusFilter != "" {
+
+				//Ignore case
+				if strings.EqualFold(reportEntry.Status, statusFilter) {
+					finalReport = append(finalReport, reportEntry)
+
+				} else {
+					continue
+				}
+
+			} else {
+				finalReport = append(finalReport, reportEntry)
+			}
+
 			if result.Err != nil {
 				var fileNotFoundError *analyzer.FileNotFoundError
 				var parsingError *analyzer.ParsingError
@@ -82,6 +99,13 @@ var analyzeCmd = &cobra.Command{
 		if outputFilePath == "" {
 			outputFilePath = "report.json"
 		}
+
+		// Si report vide après filtrage
+		if len(finalReport) == 0 {
+			fmt.Println("Aucun logs a exporter")
+			return
+		}
+
 		err = reporter.ExportReportToFile(outputFilePath, finalReport)
 		if err != nil {
 			fmt.Printf("Erreur lors de l'exportation du rapport : %v\n", err)
@@ -96,5 +120,6 @@ func init() {
 	rootCmd.AddCommand(analyzeCmd)
 	analyzeCmd.Flags().StringVarP(&inputFilePath, "path", "p", "", "Fichier de log à analyser")
 	analyzeCmd.Flags().StringVarP(&outputFilePath, "output", "o", "", "Fichier de sortie pour le rapport d'analyse")
+	analyzeCmd.Flags().StringVarP(&statusFilter, "status", "s", "", "Filtre de statut pour les logs a reporter")
 	analyzeCmd.MarkFlagRequired("path")
 }
