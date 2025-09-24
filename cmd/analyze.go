@@ -21,13 +21,16 @@ var analyzeCmd = &cobra.Command{
 	Short: "Analyse les fichiers de log",
 	Long:  `Analyse les fichiers de log et les affiche de manière lisible.`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		// Ouvre l'aide si le flag n'est pas fourni
 		path, _ := cmd.Flags().GetString("path")
 		if path == "" {
 			cmd.Help()
 			return
 		}
 
-		targets, err := config.LoadTargetsFromFile(inputFilePath)
+		//Transforme le fichier JSON en struct
+		targets, err := config.LoadTargetsFromFile(path)
 		if err != nil {
 			fmt.Printf("Erreur lors du chargement des cibles : %v\n", err)
 			return
@@ -49,6 +52,7 @@ var analyzeCmd = &cobra.Command{
 		wg.Wait()
 		close(resultsChan)
 
+		//Crer le struct pour l'export
 		var finalReport []analyzer.ReportEntry
 
 		for result := range resultsChan {
@@ -75,20 +79,22 @@ var analyzeCmd = &cobra.Command{
 		}
 
 		// Exporter le rapport final
-		if outputFilePath != "" {
-			err = reporter.ExportReportToFile(outputFilePath, finalReport)
-			if err != nil {
-				fmt.Printf("Erreur lors de l'exportation du rapport : %v\n", err)
-			} else {
-				fmt.Printf("Rapport exporté avec succès vers %s\n", outputFilePath)
-			}
+		if outputFilePath == "" {
+			outputFilePath = "report.json"
 		}
+		err = reporter.ExportReportToFile(outputFilePath, finalReport)
+		if err != nil {
+			fmt.Printf("Erreur lors de l'exportation du rapport : %v\n", err)
+		} else {
+			fmt.Printf("Rapport exporté avec succès vers %s\n", outputFilePath)
+		}
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(analyzeCmd)
 	analyzeCmd.Flags().StringVarP(&inputFilePath, "path", "p", "", "Fichier de log à analyser")
-	analyzeCmd.Flags().StringVarP(&outputFilePath, "output", "o", "report.json", "Fichier de sortie pour le rapport d'analyse")
+	analyzeCmd.Flags().StringVarP(&outputFilePath, "output", "o", "", "Fichier de sortie pour le rapport d'analyse")
 	analyzeCmd.MarkFlagRequired("path")
 }
