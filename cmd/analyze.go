@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -54,6 +55,19 @@ var analyzeCmd = &cobra.Command{
 			reportEntry := analyzer.ConvertToReportEntry(result)
 			finalReport = append(finalReport, reportEntry)
 			if result.Err != nil {
+				var fileNotFoundError *analyzer.FileNotFoundError
+				var parsingError *analyzer.ParsingError
+				if errors.As(result.Err, &fileNotFoundError) {
+					reportEntry.Status = "File Not Found"
+					reportEntry.Message = "Le fichier est introuvable."
+				} else if errors.As(result.Err, &parsingError) {
+					reportEntry.Status = "Parsing Error"
+					reportEntry.Message = "Erreur lors de l'analyse du fichier."
+				} else {
+					reportEntry.Status = "Unknown Error"
+					reportEntry.Message = "Une erreur inconnue est survenue."
+				}
+
 				fmt.Printf("Erreur lors de l'analyse du fichier %s: %v\n", result.InputTarget.Path, result.Err)
 			} else {
 				fmt.Printf("Analyse du fichier %s terminée avec succès.\n", result.InputTarget.Path)

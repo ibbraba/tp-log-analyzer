@@ -27,7 +27,7 @@ type ReportEntry struct {
 func AnalyzeLogFile(target config.InputTarget) CheckResult {
 	file, err := os.Open(target.Path)
 	if err != nil {
-		return CheckResult{InputTarget: target, Status: "FAILED", Err: fmt.Errorf("impossible d'ouvrir le fichier %s: %w", target.Path, err)}
+		return CheckResult{InputTarget: target, Status: "FAILED", Err: &FileNotFoundError{URL: target.Path, Err: err}}
 	}
 
 	defer file.Close()
@@ -47,13 +47,21 @@ func ConvertToReportEntry(res CheckResult) ReportEntry {
 	}
 
 	if res.Err != nil {
-		var unreachable *UnreachableURLError
-		if errors.As(res.Err, &unreachable) {
+		var fileNotFoundError *FileNotFoundError
+		var parsingErr *ParsingError
+		if errors.As(res.Err, &fileNotFoundError) {
 			report.Status = "Inaccessible"
-			report.ErrorDetails = fmt.Sprintf("Unreachable URL: %v", unreachable.Err)
+			report.Message = fileNotFoundError.Error()
+			report.ErrorDetails = fileNotFoundError.Unwrap().Error()
+
+		} else if errors.As(res.Err, &parsingErr) {
+			report.Status = "Parsing Error"
+			report.Message = parsingErr.Error()
+			report.ErrorDetails = parsingErr.Unwrap().Error()
 		} else {
 			report.Status = "Error"
-			report.ErrorDetails = fmt.Sprintf("Erreur générique: %v", res.Err)
+			report.Message = "Unknown error occurred"
+			report.ErrorDetails = res.Err.Error()
 		}
 	}
 

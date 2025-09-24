@@ -2,15 +2,28 @@ package analyzer
 
 import "fmt"
 
-type UnreachableURLError struct {
+type FileNotFoundError struct {
 	URL string
 	Err error
 }
 
-func (e *UnreachableURLError) Error() string {
+type ParsingError struct {
+	URL string
+	Err error
+}
+
+func (e *FileNotFoundError) Error() string {
 	return fmt.Sprintf("Log introuvable : %s (%v)", e.URL, e.Err)
 }
 
-func (e *UnreachableURLError) Unwrap() error {
+func (e *FileNotFoundError) Unwrap() error {
+	return e.Err
+}
+
+func (e *ParsingError) Error() string {
+	return fmt.Sprintf("Erreur d'analyse du log : %s (%v)", e.URL, e.Err)
+}
+
+func (e *ParsingError) Unwrap() error {
 	return e.Err
 }
