@@ -1,7 +1,7 @@
 package main
 
-import "fmt"
+import "github.com/ibbraba/tp-log-analyzer/cmd"
 
 func main() {
-	fmt.Println("Hello, World!")
+	cmd.Execute()
 }
