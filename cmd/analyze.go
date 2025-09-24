@@ -2,8 +2,17 @@ package cmd
 
 import (
 	"fmt"
+	"sync"
 
+	"github.com/ibbraba/tp-log-analyzer/internal/analyzer"
+	"github.com/ibbraba/tp-log-analyzer/internal/config"
+	"github.com/ibbraba/tp-log-analyzer/internal/reporter"
 	"github.com/spf13/cobra"
+)
+
+var (
+	inputFilePath  string
+	outputFilePath string
 )
 
 var analyzeCmd = &cobra.Command{
@@ -17,11 +26,55 @@ var analyzeCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Analyse du fichier de log : %s\n", path)
+		targets, err := config.LoadTargetsFromFile(inputFilePath)
+		if err != nil {
+			fmt.Printf("Erreur lors du chargement des cibles : %v\n", err)
+			return
+		}
+
+		//Creer waitgroup
+		var wg sync.WaitGroup
+		resultsChan := make(chan analyzer.CheckResult, len(targets))
+		wg.Add(len(targets))
+
+		for _, target := range targets {
+			go func(t config.InputTarget) {
+				defer wg.Done()
+				result := analyzer.AnalyzeLogFile(target)
+				resultsChan <- result
+			}(target)
+		}
+
+		wg.Wait()
+		close(resultsChan)
+
+		var finalReport []analyzer.ReportEntry
+
+		for result := range resultsChan {
+			reportEntry := analyzer.ConvertToReportEntry(result)
+			finalReport = append(finalReport, reportEntry)
+			if result.Err != nil {
+				fmt.Printf("Erreur lors de l'analyse du fichier %s: %v\n", result.InputTarget.Path, result.Err)
+			} else {
+				fmt.Printf("Analyse du fichier %s terminée avec succès.\n", result.InputTarget.Path)
+			}
+		}
+
+		// Exporter le rapport final
+		if outputFilePath != "" {
+			err = reporter.ExportReportToFile(outputFilePath, finalReport)
+			if err != nil {
+				fmt.Printf("Erreur lors de l'exportation du rapport : %v\n", err)
+			} else {
+				fmt.Printf("Rapport exporté avec succès vers %s\n", outputFilePath)
+			}
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(analyzeCmd)
-	analyzeCmd.Flags().StringP("path", "p", "", "Fichier de log à analyser")
+	analyzeCmd.Flags().StringVarP(&inputFilePath, "path", "p", "", "Fichier de log à analyser")
+	analyzeCmd.Flags().StringVarP(&outputFilePath, "output", "o", "report.json", "Fichier de sortie pour le rapport d'analyse")
+	analyzeCmd.MarkFlagRequired("path")
 }
